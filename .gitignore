@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data_cache/
+*.log
+.env
+.ipynb_checkpoints/
+.DS_Store
+backtester/outputs/*
+!backtester/outputs/equity_curve_oos.png

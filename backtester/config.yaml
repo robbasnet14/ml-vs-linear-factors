@@ -1,0 +1,47 @@
+# ---- Universe ----
+universe:
+  name: "SP500"            # or "TOP1000_DOLLAR_VOL"
+  start_date: "2010-01-01"
+  end_date: "2024-12-31"
+
+# ---- Data ----
+data:
+  provider: "yfinance+sec"  # prices: Yahoo Finance (yfinance); fundamentals: SEC EDGAR XBRL — both free, keyless
+  cache_dir: "data_cache"
+  fundamentals_lag_days: 90 # extra buffer past SEC's actual filing date; filing date alone already prevents look-ahead
+
+# ---- Factors ----
+factors:
+  momentum: {enabled: true, lookback_months: 12, skip_months: 1}
+  value:    {enabled: true, metric: "earnings_yield"}
+  quality:  {enabled: true, metric: "roe"}
+
+# ---- Portfolio ----
+portfolio:
+  rebalance: "M"            # monthly
+  n_deciles: 10
+  long_short: true          # long top decile, short bottom decile
+  weighting: "equal"
+
+# ---- Costs ----
+costs:
+  bps_per_trade: 8          # round-trip transaction cost in basis points
+
+# ---- Benchmark ----
+benchmark: "SPY"
+
+# ---- Validation ----
+validation:
+  # Number of distinct factor/parameter configurations you've tried (lookback
+  # windows, decile counts, weightings, etc.) before landing on this one.
+  # Feeds the deflated Sharpe ratio's correction for selection bias — bump
+  # this honestly every time you tweak a setting and rerun, or the deflated
+  # Sharpe just reports the plain (overstated) one back to you.
+  n_trials: 1
+  # Walk-forward, out-of-sample schedule. The headline metrics printed by
+  # run_backtest.py are computed on the STITCHED out-of-sample series this
+  # produces, not on the full-period run — see src/backtest/validation.py.
+  walk_forward:
+    initial_train_months: 60   # first in-sample window before any OOS testing starts
+    test_months: 12            # length of each out-of-sample block
+    embargo_months: 1          # gap between train and test — no rebalance scored in it
