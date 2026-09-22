@@ -86,6 +86,38 @@ def test_rows_restricted_to_point_in_time_universe_membership():
     assert set(panel["ticker"]) == {"AAA"}
 
 
+def test_ticker_joining_or_leaving_mid_window_only_appears_while_a_member():
+    # DDD has prices for every month but only joins the index at 2020-03-31;
+    # EEE has prices for every month but is removed after 2020-02-29. Neither
+    # may show up on a date when it wasn't a member, even though its features
+    # and forward return are computable there.
+    prices = _long_prices(
+        {
+            "AAA": [100, 110, 100, 300, 300, 300],
+            "DDD": [10, 11, 12, 13, 14, 15],
+            "EEE": [20, 21, 22, 23, 24, 25],
+        }
+    )
+    fundamentals = _fundamentals_for(["AAA", "DDD", "EEE"])
+    universe = pd.DataFrame(True, index=MONTH_ENDS, columns=["AAA", "DDD", "EEE"])
+    universe.loc[MONTH_ENDS < pd.Timestamp("2020-03-31"), "DDD"] = False
+    universe.loc[MONTH_ENDS > pd.Timestamp("2020-02-29"), "EEE"] = False
+
+    panel = build_ml_panel(prices, fundamentals, universe, FACTOR_CFG)
+
+    dates_by_ticker = panel.groupby("ticker")["date"].agg(["min", "max"])
+    # DDD: first row is its join date, and it's present through the last
+    # date with a forward return (May; June has none).
+    assert dates_by_ticker.loc["DDD", "min"] == pd.Timestamp("2020-03-31")
+    assert dates_by_ticker.loc["DDD", "max"] == pd.Timestamp("2020-05-31")
+    assert set(panel.loc[panel["ticker"] == "DDD", "date"]) == set(MONTH_ENDS[2:5])
+    # EEE: nothing after its removal date.
+    assert dates_by_ticker.loc["EEE", "max"] == pd.Timestamp("2020-02-29")
+    assert set(panel.loc[panel["ticker"] == "EEE", "date"]) == set(MONTH_ENDS[:2])
+    # AAA (a member throughout) is unaffected by the others' churn.
+    assert set(panel.loc[panel["ticker"] == "AAA", "date"]) == set(MONTH_ENDS[:5])
+
+
 def test_output_shape_and_columns():
     prices = _long_prices({"AAA": [100, 110, 100, 300, 300, 300]})
     fundamentals = _fundamentals_for(["AAA"])
