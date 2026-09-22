@@ -43,26 +43,70 @@ and acquired names (exactly where survivorship bias does its damage),
 never gets a price and is silently absent from every downstream frame with
 no warning either script prints to that effect.
 
-## The two honest ways out (per the review)
+## Tiingo was tried — free-tier key has no depth for these names (2026-09-22)
 
-1. **Preferred: set `TIINGO_KEY` and re-run both arms** (baseline +
-   dataset + all 8 ML configs), so the Tiingo fallback the codebase already
-   has actually engages. This needs a free Tiingo signup — outside what
-   this session can do unattended. **Action needed from the user.**
-2. **If (1) isn't done before publication:** state the exact coverage loss
-   in the paper (this file's numbers), and change the Data section's
-   framing from "survivorship-bias-free" to "point-in-time universe with
-   continuous-Yahoo-coverage names only; 30.7% of point-in-time members
-   excluded for missing price history, disproportionately delisted/
-   acquired/renamed names — see `results/coverage_gap_note.md`." Keep
-   "survivorship-bias-free" only for a description of `build_universe`
-   itself (the membership matrix), never for the panel the models actually
-   train and trade on.
+The user obtained a `TIINGO_KEY` and we ran the 5-name, 10-minute spot
+check the review proposed before committing to a full re-fetch: `ANTM,
+APC, CEPH, BNI, BMC` (all in `unavailable_prices.json`), via
+`load_prices(..., force_refresh=True)`.
 
-Do not resolve this with a footnote about the baseline Sharpe moving from
-0.02 (the original `TIINGO_KEY` run cited in `backtester/BACKTESTER_README.md`)
-to 0.07/0.066 (this repo's `TIINGO_KEY`-less re-run) — that drift is a
-symptom of this gap, not a separate, smaller issue.
+**Result: 0 of 5 returned any price data.** All 5 failed on Yahoo exactly
+as before, and Tiingo's `/tiingo/daily/<ticker>/prices` endpoint returned
+HTTP 200 with an **empty array** for every one of them — this is not an
+auth problem (a control fetch of AAPL on the same key returned real data
+immediately) and not a code bug (`_tiingo_headers`/`_fetch_tiingo_prices`
+worked as documented). Querying Tiingo's ticker-metadata endpoint
+(`/tiingo/daily/<ticker>`, no `/prices`) directly confirms it: for BMC,
+BNI, CEPH, ANTM, Tiingo correctly identifies the company ("BMC Software
+Inc", "BURLINGTON NORTHERN SANTA FE LLC", "CEPHALON INC" — all flagged
+`DELISTED`) but reports `"startDate": null, "endDate": null"` — Tiingo
+knows who these companies were but has never ingested price history for
+them on this key/tier. This looks like a real, structural gap in Tiingo's
+historical depth for names delisted well before its own IEX-era data
+backfill, not something a retry or a code fix resolves.
+
+(Bonus, unrelated to the fix: querying `APC` returned a *different*
+company — "ARKO Petroleum Corp - Class A", trading since 2026-02-12,
+unrelated to the original Anadarko Petroleum this study's `APC` refers to.
+Real-world confirmation of the ticker-reuse risk `results/ticker_identity_check.md`
+already checked for — harmless here since it postdates the 2010-2024 study
+window entirely, but one more point for the "use a permanent identifier,
+not a ticker symbol" limitation.)
+
+**Decision, per the pre-agreed protocol ("if it doesn't [return history],
+you've learned that cheaply and the reframe is the answer — stop and move
+on"): the full 196-name re-fetch was not run.** Spending the API calls on
+the rest of the list would almost certainly reproduce the same null result
+for names delisted in the same era (2008-2013 for these 5), and the
+sample size (5 of 5 failing, spanning different sectors and delisting
+reasons — bankruptcy, acquisition, merger) is a reasonable basis for that
+call within the 10-minute timebox.
+
+## Resolution: the reframe is the paper's official Data-section language
+
+- **Keep "point-in-time, survivorship-bias-free" only for `build_universe`'s
+  membership matrix** (694 tickers, verified correct — no delisted name
+  improperly excluded from *membership*).
+- **For the panel the models actually train and trade on**, state: "30.7%
+  of point-in-time S&P 500 members (213 of 694) are excluded from the
+  analysis for lack of available price history, disproportionately
+  delisted, acquired, and renamed names — the exact population survivorship
+  bias would otherwise inflate returns by silently dropping. Coverage was
+  checked against Yahoo Finance and Tiingo; Tiingo's free tier had no
+  price history for a 5-name spot check of confirmed-delisted names
+  (ANTM, APC, CEPH, BNI, BMC) spanning the exclusion period, so a fuller
+  Tiingo re-fetch was not pursued. Results are therefore conditional on
+  names with continuous price coverage, not the full historical
+  membership — see `results/coverage_gap_note.md`."
+- Do **not** resolve this with a footnote about the baseline Sharpe moving
+  from 0.02 (the original `TIINGO_KEY` run cited in
+  `backtester/BACKTESTER_README.md` — a run made before this gap was
+  understood) to 0.07/0.066 (this repo's committed run) — that drift is a
+  symptom of this gap, not a separate, smaller issue, and the 0.02 number
+  should not be cited in the paper without this caveat attached.
+- `unavailable_fundamentals.json`'s 216-name gap is separate (SEC EDGAR
+  coverage, not fixable by Tiingo at all) and should be disclosed
+  independently, per the review's point 2.
 
 ## Reproducing this check
 

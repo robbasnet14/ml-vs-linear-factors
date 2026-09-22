@@ -115,9 +115,21 @@ point-in-time member (e.g. new "Dow Inc." data attributed to old Dow Chemical's 
 window). That check came back clean: every flagged ticker's price coverage falls entirely
 outside its old membership window, so this is a *missing-data* problem, not a *wrong-data*
 problem — but it does mean "survivorship-bias-free" is only true of `build_universe`'s
-membership matrix, not of what the backtest and ML panel actually trade on, until
-`TIINGO_KEY` is set and Steps 3-6 are re-run. `unavailable_fundamentals.json` (216 entries)
-is a separate, SEC EDGAR-side coverage gap that a Tiingo key does not fix.
+membership matrix, not of what the backtest and ML panel actually trade on.
+
+**2026-09-22 — Tiingo tried, doesn't close the gap; reframe is final, not provisional.**
+Obtained a `TIINGO_KEY` and ran the proposed 5-name spot check (`ANTM, APC, CEPH, BNI,
+BMC`) before committing to a full 196-name re-fetch. 0 of 5 returned any price history:
+Tiingo's own ticker-metadata endpoint confirms it knows these are the right (delisted)
+companies but has never ingested price data for them (`startDate`/`endDate` both null) —
+a real gap in Tiingo's historical depth for this era, not a key or code problem (a control
+fetch of AAPL on the same key worked immediately). Per the pre-agreed protocol, the full
+196-name re-fetch was not run, and Steps 3-6 are NOT being redone. The Data section's
+language is now: point-in-time, survivorship-bias-free *membership* (verified), but the
+panel the models train and trade on excludes 30.7% of point-in-time members (213/694) for
+missing price history, disproportionately delisted/acquired/renamed names — full detail
+and exact wording in `results/coverage_gap_note.md`. `unavailable_fundamentals.json` (216
+entries) is a separate, SEC EDGAR-side coverage gap that Tiingo does not touch either way.
 
 **2026-09-22 — the deflated Sharpe threshold (0.95) was never numerically committed here.**
 "How I decide if ML 'wins'" above says the result must "survive the deflated Sharpe" but
