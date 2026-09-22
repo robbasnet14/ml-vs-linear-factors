@@ -46,6 +46,45 @@ def run_backtest(
     Returns a periodic net-of-cost P&L series indexed by rebalance date `t`,
     representing the return earned by the position established at `t`.
     """
+    w, r = _fill_returns_for_held_positions(weights, forward_returns, prices)
+    gross_pnl = (w.fillna(0.0) * r.fillna(0.0)).sum(axis=1)
+    cost = apply_costs(w.fillna(0.0), cost_bps)
+    return (gross_pnl - cost).rename("net_return")
+
+
+def run_backtest_breakdown(
+    weights: pd.DataFrame,
+    forward_returns: pd.DataFrame,
+    cost_bps: float,
+    prices: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Same computation as `run_backtest`, but returns gross return, cost,
+    and net return as separate columns instead of only net.
+
+    Exists so a caller can report gross-of-cost performance (e.g. "is the
+    signal real but untradeable at this cost, or just not real") without
+    duplicating the delisting-exit / missing-return handling that
+    `run_backtest` already implements — both functions share
+    `_fill_returns_for_held_positions`, and `net_return` here is
+    numerically identical to `run_backtest`'s output on the same inputs
+    (see tests/test_backtest.py).
+    """
+    w, r = _fill_returns_for_held_positions(weights, forward_returns, prices)
+    gross_pnl = (w.fillna(0.0) * r.fillna(0.0)).sum(axis=1)
+    cost = apply_costs(w.fillna(0.0), cost_bps)
+    return pd.DataFrame({"gross_return": gross_pnl, "cost": cost, "net_return": gross_pnl - cost})
+
+
+def _fill_returns_for_held_positions(
+    weights: pd.DataFrame,
+    forward_returns: pd.DataFrame,
+    prices: pd.DataFrame | None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Align `weights`/`forward_returns` and fill a held position's missing
+    forward return via delisting-exit pricing where possible (see
+    `run_backtest`'s docstring for the full rationale) — shared by
+    `run_backtest` and `run_backtest_breakdown` so they can never diverge.
+    """
     index = weights.index.intersection(forward_returns.index)
     columns = weights.columns.intersection(forward_returns.columns)
     w = weights.loc[index, columns]
@@ -71,9 +110,7 @@ def run_backtest(
             "payout, bankruptcy wipeout, etc.) is unknown from price data alone and is not modeled."
         )
 
-    gross_pnl = (w.fillna(0.0) * r.fillna(0.0)).sum(axis=1)
-    cost = apply_costs(w.fillna(0.0), cost_bps)
-    return (gross_pnl - cost).rename("net_return")
+    return w, r
 
 
 def _delisting_exit_returns(

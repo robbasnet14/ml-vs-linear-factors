@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from src.backtest.costs import apply_costs
-from src.backtest.engine import run_backtest
+from src.backtest.engine import run_backtest, run_backtest_breakdown
 from src.backtest.portfolio import decile_portfolios
 
 DATES = pd.date_range("2020-01-31", periods=3, freq="ME")
@@ -138,3 +138,29 @@ def test_run_backtest_mixes_exit_priced_and_normal_positions_correctly():
 
     # A exits at its last available price (45 vs entry 50); B earns its real 5% forward return.
     assert net.loc[dates[0]] == pytest.approx((45.0 / 50.0 - 1.0) + 0.05)
+
+
+def test_run_backtest_breakdown_net_column_matches_run_backtest_exactly():
+    # Same fixture as test_run_backtest_mixes_exit_priced_and_normal_positions_correctly —
+    # run_backtest and run_backtest_breakdown must never diverge on net_return.
+    dates = DATES[:2]
+    weights = pd.DataFrame({"A": [1.0, 0.0], "B": [1.0, 1.0]}, index=dates)
+    forward_returns = pd.DataFrame({"A": [np.nan, 0.0], "B": [0.05, 0.02]}, index=dates)
+    prices = pd.DataFrame({"A": [50.0, 45.0], "B": [100.0, 105.0]}, index=dates)
+
+    net = run_backtest(weights, forward_returns, cost_bps=25, prices=prices)
+    breakdown = run_backtest_breakdown(weights, forward_returns, cost_bps=25, prices=prices)
+
+    pd.testing.assert_series_equal(breakdown["net_return"], net, check_names=False)
+    pd.testing.assert_series_equal(breakdown["gross_return"] - breakdown["cost"], net, check_names=False)
+
+
+def test_run_backtest_breakdown_gross_ignores_costs():
+    weights = pd.DataFrame({"A": [1.0], "B": [-1.0]}, index=[DATES[0]])
+    forward_returns = pd.DataFrame({"A": [0.05], "B": [0.02]}, index=[DATES[0]])
+
+    breakdown = run_backtest_breakdown(weights, forward_returns, cost_bps=200)
+
+    assert breakdown["gross_return"].loc[DATES[0]] == pytest.approx(1.0 * 0.05 + -1.0 * 0.02)
+    assert breakdown["cost"].loc[DATES[0]] > 0.0
+    assert breakdown["net_return"].loc[DATES[0]] < breakdown["gross_return"].loc[DATES[0]]
