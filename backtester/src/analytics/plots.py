@@ -13,13 +13,25 @@ _STRATEGY_COLOR = "#2a78d6"   # categorical slot 1 (blue)
 _BENCHMARK_COLOR = "#1baf7a"  # categorical slot 2 (aqua)
 
 
-def plot_equity_curve(returns: pd.Series, benchmark: pd.Series | None = None, path: str = "outputs/equity_curve.png"):
+def plot_equity_curve(
+    returns: pd.Series,
+    benchmark: pd.Series | None = None,
+    path: str = "outputs/equity_curve.png",
+    strategy_label: str = "Strategy",
+    benchmark_label: str = "SPY",
+    title: str = "Cumulative Growth of $1",
+):
     """Plot cumulative growth of $1 for `returns`, optionally overlaid with
-    `benchmark` (e.g. SPY) on the same periods, and save to `path`.
+    `benchmark` (e.g. SPY, or a second strategy for a head-to-head
+    comparison) on the same periods, and save to `path`.
 
     Both series are period returns (not already cumulative) sharing a
     comparable calendar; each is compounded independently from $1 so the two
     lines are directly comparable regardless of gaps in one series.
+    `strategy_label`/`benchmark_label` default to the original "Strategy"/
+    "SPY" wording so existing callers are unaffected; pass explicit labels
+    (e.g. "Linear baseline" / "ML: rf_depth10_leaf50") for a strategy-vs-
+    strategy overlay.
     """
     r = returns.dropna()
     equity = (1 + r).cumprod()
@@ -27,7 +39,7 @@ def plot_equity_curve(returns: pd.Series, benchmark: pd.Series | None = None, pa
     fig, ax = plt.subplots(figsize=(10, 6), facecolor=_SURFACE)
     ax.set_facecolor(_SURFACE)
 
-    ax.plot(equity.index, equity.values, color=_STRATEGY_COLOR, linewidth=2, solid_capstyle="round", label="Strategy")
+    ax.plot(equity.index, equity.values, color=_STRATEGY_COLOR, linewidth=2, solid_capstyle="round", label=strategy_label)
 
     if benchmark is not None:
         b = benchmark.reindex(r.index).dropna()
@@ -39,10 +51,10 @@ def plot_equity_curve(returns: pd.Series, benchmark: pd.Series | None = None, pa
             linewidth=2,
             linestyle="--",
             dash_capstyle="round",
-            label="SPY",
+            label=benchmark_label,
         )
 
-    ax.set_title("Cumulative Growth of $1", color=_INK_PRIMARY, fontsize=14, fontweight="bold", loc="left")
+    ax.set_title(title, color=_INK_PRIMARY, fontsize=14, fontweight="bold", loc="left")
     ax.set_ylabel("Portfolio value ($)", color=_INK_SECONDARY)
     ax.tick_params(colors=_INK_MUTED)
 
