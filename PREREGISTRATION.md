@@ -93,3 +93,41 @@ A short paper with the question, the data, the method, one comparison table (bas
 ML), one out-of-sample equity curve, and an honest read of whether ML added anything after
 costs — including the limitations. A negative or "no real difference" result gets written
 up just as clearly as a positive one.
+
+## Deviations from the original plan
+
+Per the commitment at the top of this file, changes get noted here, not edited quietly into
+the text above.
+
+**2026-09-22 — baseline Sharpe restated (0.02 -> ~0.07/0.066), cause identified.**
+"What I already know (the baseline)" above states an out-of-sample Sharpe of about 0.02.
+That number came from an earlier run of the backtester with a `TIINGO_KEY` set, so Yahoo
+Finance's gaps for delisted/renamed names (e.g. FB, TWTR, XLNX, CELG) were filled by Tiingo's
+fallback. The committed baseline in `results/baseline/README.md` and everything downstream
+(Steps 3-6) comes from a re-run without `TIINGO_KEY`, giving OOS Sharpe 0.066-0.07 instead.
+Investigating this (see `results/coverage_gap_note.md`) surfaced something bigger than a
+decimal shift: **213 of the 694 point-in-time S&P 500 tickers in the study window (30.7%)
+have zero rows anywhere in the panel**, because the Tiingo fallback never engaged. 196 are
+explained by `backtester/data_cache/unavailable_prices.json`; 17 are not, and were separately
+checked (`results/ticker_identity_check.md`) to rule out the worse failure mode — a base
+ticker's price history actually belonging to a different company than the one that was the
+point-in-time member (e.g. new "Dow Inc." data attributed to old Dow Chemical's membership
+window). That check came back clean: every flagged ticker's price coverage falls entirely
+outside its old membership window, so this is a *missing-data* problem, not a *wrong-data*
+problem — but it does mean "survivorship-bias-free" is only true of `build_universe`'s
+membership matrix, not of what the backtest and ML panel actually trade on, until
+`TIINGO_KEY` is set and Steps 3-6 are re-run. `unavailable_fundamentals.json` (216 entries)
+is a separate, SEC EDGAR-side coverage gap that a Tiingo key does not fix.
+
+**2026-09-22 — the deflated Sharpe threshold (0.95) was never numerically committed here.**
+"How I decide if ML 'wins'" above says the result must "survive the deflated Sharpe" but
+never fixes a number. 0.95 is the conventional interpretation used in
+`src/analytics/metrics.py`'s docstring ("conventionally >= 0.95 is treated as 'likely genuine
+skill'"), and it's what `scripts/compare_ml_vs_baseline.py` checks — but choosing it now,
+after seeing results, is a post-hoc threshold pick, however standard. Stated honestly: the
+best ML configuration's net-of-cost deflated Sharpe is 0.2022 (n_trials=9); **the "ML does
+not win" conclusion is unchanged for any threshold >= 0.21**, i.e. it isn't sensitive to
+where exactly the line gets drawn within any conventional range (0.5, 0.75, 0.95 all give
+the same answer). See `results/comparison/README.md` for the full comparison and the
+statistical-power analysis of what this study's sample size could have detected in the first
+place.
