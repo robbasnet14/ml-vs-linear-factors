@@ -128,6 +128,146 @@ things, not one: (1) we fail to reject the null, and (2) the design could
 not have rejected it for any realistic effect size — a materially
 different and stronger claim than "ML didn't win."
 
+## Step 7: leave-one-out — the entire apparent edge is one fold
+
+Built by `backtester/scripts/subperiod_table.py`. For each of the 10
+walk-forward folds, drop that fold's periods from the pooled OOS series
+and recompute Sharpe on what's left, for both arms — the standard
+robustness check for "does this result depend on one window."
+
+| Fold dropped | Baseline Sharpe | ML Sharpe | ML − baseline |
+|---|---|---|---|
+| 0 | -0.114 | +0.269 | +0.384 |
+| 1 | +0.123 | +0.290 | +0.167 |
+| 2 | -0.006 | +0.208 | +0.214 |
+| 3 | +0.047 | +0.234 | +0.187 |
+| 4 | -0.036 | +0.162 | +0.198 |
+| 5 | +0.390 | +0.646 | +0.256 |
+| 6 | -0.003 | +0.279 | +0.282 |
+| **7** | **+0.115** | **-0.024** | **-0.138** |
+| 8 | +0.111 | +0.192 | +0.082 |
+| 9 | +0.073 | +0.224 | +0.152 |
+| none (full sample) | +0.066 | +0.241 | +0.175 |
+
+Full precision in `leave_one_out_sharpe.csv`.
+
+**This is the headline finding of Step 7, and it overturns the earlier
+draft's win-rate framing.** Dropping fold 7 alone takes `rf_depth10_leaf50`
+from Sharpe 0.241 to **-0.024** — the only fold whose removal flips the
+sign of ML's advantage, by a wide margin (next-largest swing is 0.09). The
+cumulative-return numbers say the same thing, and more starkly than an
+earlier draft of this section stated: ML's total advantage over the
+baseline across all 10 folds is +16.9pp (see the per-fold table below);
+fold 7 alone contributes **+38.4pp** to that (its ML cum. return of +31.26%
+minus the baseline's -7.14% in that same window) — **more than the entire
+net advantage**. Every other fold, combined, nets to **-21.5pp** — ML
+underperforms the baseline once fold 7 is excluded, not merely "loses its
+edge." **The best-performing ML configuration's entire apparent edge over
+the linear baseline comes from a single 12-month window
+(2022-09 to 2023-09), and every other window it was tested on actually
+favored the baseline.**
+
+## Step 7: per-fold Sharpe, on the pre-registered fold boundaries
+
+| Fold | Test window | Baseline Sharpe | Baseline cum. return | ML Sharpe | ML cum. return |
+|---|---|---|---|---|---|
+| 0 | 2015-02 → 2016-02 | 1.529 | +30.13% | -0.172 | -1.23% |
+| 1 | 2016-03 → 2017-03 | -0.616 | -8.41% | -0.396 | -3.14% |
+| 2 | 2017-04 → 2018-04 | 1.082 | +12.05% | 1.090 | +4.89% |
+| 3 | 2018-05 → 2019-05 | 0.367 | +3.35% | 0.393 | +2.33% |
+| 4 | 2019-06 → 2020-06 | 0.674 | +14.58% | 0.816 | +10.13% |
+| **5** | **2020-07 → 2021-07** | **-1.304** | **-36.58%** | **-1.151** | **-23.99%** |
+| 6 | 2021-08 → 2022-08 | 0.762 | +11.05% | -0.054 | -1.42% |
+| **7** | **2022-09 → 2023-09** | **-0.539** | **-7.14%** | **2.803** | **+31.26%** |
+| 8 | 2023-10 → 2024-10 | -0.243 | -7.16% | 0.577 | +7.02% |
+| 9 | 2024-11 → 2024-12 (partial, 1 period) | n/a | -1.08% | n/a | +1.87% |
+
+**ML's Sharpe beats the baseline's in 7 of 9 full folds — but this win
+rate is misleading on its own, and an earlier draft of this section relied
+on it incorrectly.** It counts wins without weighting them: 4 of the 7
+"wins" are near-rounding-error (e.g. fold 2: 1.090 vs 1.082) and three of
+those actually have *lower* cumulative return than the baseline — ML wins
+those on lower volatility, not better returns. Meanwhile its two losses
+are large (fold 0: baseline +30.1% vs ML -1.2%; fold 6: +11.1% vs -1.4%),
+and its one enormous win (fold 7: -7.1% vs +31.3%) is doing essentially all
+the work — see the leave-one-out table above for the direct evidence.
+**Do not cite the "7 of 9" win rate as evidence of a broad-based edge.**
+
+**Fold 5 (2020-07 to 2021-07) is where both arms take their worst loss by
+a wide margin** — baseline -36.58%, driving most of its full-sample
+-47.78% max drawdown; ML -23.99%. This window is the sharp value/
+low-quality rally that followed the March 2020 crash, in which
+previously-beaten-down names (a momentum strategy's short leg) violently
+reversed — the pattern Daniel & Moskowitz document in "Momentum Crashes"
+(2016): momentum's short leg is most exposed precisely when a bear market
+is ending, because that's when past losers are most likely to rebound
+sharply. Fold 4 (2019-06 to 2020-06, containing the crash itself) shows
+both arms positive, with the damage instead landing in the slower
+rotation that followed.
+
+## Step 7: feature importance — unstable, and it converges with the leave-one-out finding
+
+Built by `backtester/scripts/feature_importance.py`, using
+`src/ml/importance.py`'s per-fold permutation importance (not
+`feature_importances_`, which is computed on training data and biased
+toward more-split-opportunity features) scored by cross-sectional rank IC
+(Spearman correlation of predicted score vs. realized forward return,
+within each OOS month, averaged over the fold) — the metric this
+decile-ranking strategy actually depends on, not R^2 on pooled returns.
+**Computed on the 9 full folds only** — fold 9 is truncated to a single
+OOS date (2024-11-01 to 2024-12-31, per the config's Nov-Dec 2024 partial
+window), and a single date's rank IC is one Spearman correlation, not an
+average; including it would over-weight it relative to the other folds
+(`src.ml.importance.permutation_importance_per_fold` now reports
+`n_test_dates` per fold so this is explicit and filterable, not silent).
+
+**Lead finding: the standard deviation of importance across the 9 full
+folds is larger than the mean, for all three features — and it gets more
+pronounced once fold 9 is excluded, not less.**
+
+| Feature | Mean importance | Std across folds |
+|---|---|---|
+| val_z | 0.0107 | 0.0203 |
+| qual_z | 0.0030 | 0.0114 |
+| mom_z | 0.0018 | 0.0130 |
+
+The feature with the *highest* importance flips fold to fold — val_z wins
+5 of 9, mom_z 2, qual_z 2, with no consistent leader. In 3 of 9 folds
+(1, 2, 5), `rf_depth10_leaf50`'s raw (unpermuted) predictions were
+themselves **negatively** rank-correlated with realized forward returns.
+Full per-fold detail in `feature_importance_per_fold.csv`.
+
+**This converges with the leave-one-out finding, not just parallels it:
+fold 7 — the single fold that drives all of ML's apparent edge — is also
+where val_z's importance peaks (0.0588, roughly 3x any other fold) and
+where the baseline rank IC is the highest of any full fold.** One window
+where value happened to work, with no evidence it carries over to any
+other fold. Combined with the leave-one-out result, this points to the
+same conclusion by two independent routes: `rf_depth10_leaf50` is not
+learning a stable relationship with any of the three factors, and its
+0.241 headline Sharpe is one regime's value bet, not a repeatable edge.
+
+## Step 7: cost sensitivity — caveated, not a supporting result
+
+Built by `backtester/scripts/cost_sensitivity.py`. Cost is linear in bps
+(`turnover * bps / 1e4`), so this needed one walk-forward pass per arm at
+a reference cost, then a closed-form rescaling across the bps grid.
+
+![Cost sensitivity](cost_sensitivity.png)
+
+The pooled crossover (where ML's raw Sharpe advantage over the baseline
+hits zero) is ~31.6 bps/trade, about 4x the study's 8bps assumption. **This
+number should not be read as "ML's edge is robust to cost assumptions" —
+the leave-one-out result above shows the pooled advantage this sweep is
+built on does not survive leaving out fold 7, so the crossover describes
+the durability of a pooled effect that isn't a genuine, broad-based edge
+to begin with.** It's retained here only as a secondary, narrower fact
+(how sensitive the *pooled* number is to costs, for anyone reading the
+Sharpe/DSR sections above), not as evidence for or against ML's viability.
+It has no bearing on why ML failed to win: the unstable, fold-7-driven
+feature importances above are the closer-to-mechanistic answer for that.
+Full grid in `cost_sensitivity.csv`.
+
 ## Reproducing
 
 ```bash
@@ -135,4 +275,7 @@ cd backtester
 PYTHONPATH=. python scripts/compare_ml_vs_baseline.py
 PYTHONPATH=. python scripts/gross_vs_net.py
 PYTHONPATH=. python scripts/dsr_power_table.py
+PYTHONPATH=. python scripts/feature_importance.py   # writes feature_importance_per_fold.csv
+PYTHONPATH=. python scripts/subperiod_table.py       # writes per_fold_subperiods.csv AND leave_one_out_sharpe.csv
+PYTHONPATH=. python scripts/cost_sensitivity.py
 ```

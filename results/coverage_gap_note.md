@@ -90,14 +90,23 @@ call within the 10-minute timebox.
 - **For the panel the models actually train and trade on**, state: "30.7%
   of point-in-time S&P 500 members (213 of 694) are excluded from the
   analysis for lack of available price history, disproportionately
-  delisted, acquired, and renamed names — the exact population survivorship
-  bias would otherwise inflate returns by silently dropping. Coverage was
-  checked against Yahoo Finance and Tiingo; Tiingo's free tier had no
-  price history for a 5-name spot check of confirmed-delisted names
-  (ANTM, APC, CEPH, BNI, BMC) spanning the exclusion period, so a fuller
-  Tiingo re-fetch was not pursued. Results are therefore conditional on
-  names with continuous price coverage, not the full historical
-  membership — see `results/coverage_gap_note.md`."
+  delisted, acquired, and renamed names. The direction of the resulting
+  bias is ambiguous for a dollar-neutral long/short decile book, and we do
+  not attempt to sign it: names that deteriorated into bankruptcy would
+  mostly have sat in the short leg, so dropping them removes short-leg
+  gains a real investor would have earned; names acquired at a premium
+  would have produced a sharp adverse move against a short position, so
+  dropping them removes short-leg losses a real investor would have taken.
+  These pull in opposite directions, and nothing in the available data lets
+  us net them out. Coverage was checked against Yahoo Finance and Tiingo;
+  Tiingo's free tier had no price history for a 5-name spot check of
+  confirmed-delisted names (ANTM, APC, CEPH, BNI, BMC) spanning the
+  exclusion period, so a fuller Tiingo re-fetch was not pursued. Results
+  are therefore conditional on names with continuous price coverage, not
+  the full historical membership — see `results/coverage_gap_note.md`."
+  (The instinct that excluding delisted names simply inflates returns is a
+  long-only intuition — it does not transfer to a dollar-neutral long/short
+  design, where those same names could equally have sat on the short leg.)
 - Do **not** resolve this with a footnote about the baseline Sharpe moving
   from 0.02 (the original `TIINGO_KEY` run cited in
   `backtester/BACKTESTER_README.md` — a run made before this gap was
