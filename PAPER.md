@@ -17,7 +17,7 @@ baseline's (0.07), but its deflated Sharpe ratio (0.20) falls far short of the
 win condition is not met. Two further checks make this a stronger null than a
 Sharpe comparison alone: leave-one-fold-out analysis shows the best
 configuration's entire apparent edge is contributed by a single 12-month
-window, and every other window actually favors the baseline; and per-fold
+window — excluding that window, the baseline outperforms in aggregate; and per-fold
 permutation importance shows the model is not learning a stable relationship
 with any of the three factors. A power analysis shows this design could not
 have detected a genuine Sharpe 0.3–0.5 edge at any multiple-testing correction
@@ -36,12 +36,17 @@ a basic move in quantitative equity investing, and it raises an old question
 in a new form: is a hand-picked linear combination — an equal-weight average,
 in the simplest case — leaving money on the table that a flexible, non-linear
 model could capture? Machine learning has been applied to this question at
-scale in recent years (Gu, Kelly, and Xiu 2020), generally with an encouraging
-answer for large, feature-rich, professionally-curated datasets. This paper
-asks the same question in a much smaller, much more reproducible setting:
-three well-known factors — momentum, value, and quality — combined by an
-off-the-shelf gradient boosting or random forest model, tested walk-forward,
-after realistic trading costs, in US large-cap stocks.
+scale in recent years: Gu, Kelly, and Xiu (2020), working with hundreds of
+firm characteristics across the full cross-section of US equities, report
+annualized out-of-sample Sharpe ratios of 1.35 (value-weighted) to 2.45
+(equal-weighted) for a neural-network long-short decile strategy, against
+0.61 to 0.83 for an OLS benchmark on the same features — a large gain,
+though reported gross of transaction costs on a paper portfolio, not as a
+tradeable net return. This paper asks the same question in a much smaller,
+much more reproducible, and explicitly cost-aware setting: three well-known
+factors — momentum, value, and quality — combined by an off-the-shelf
+gradient boosting or random forest model, tested walk-forward, after
+realistic trading costs, in US large-cap stocks.
 
 We pre-registered the question, the hypothesis (stated as a null, on purpose),
 the exact model grid, and the win condition before training any model
@@ -174,7 +179,12 @@ factor lookback windows and lagged fundamentals from leaning on information
 still "in flight" at a fold boundary; for the ML pipeline, the same fold
 boundaries additionally ensure every model is fit on strictly prior data and
 evaluated on strictly subsequent data, with imputation (median-fill for a
-missing factor value) also fit on the training fold only.
+missing factor value) also fit on the training fold only. The 1-month
+embargo is sufficient for this specifically because each training row's
+label is the return from its rebalance date `t` to `t+1` — a 1-month-ahead
+target — so no training label's realization window extends past the single
+month the embargo excludes; a training row immediately adjacent to the test
+block, in other words, still resolves entirely before the test block opens.
 
 **Model grid (pre-registered, `PREREGISTRATION.md`).**
 
@@ -268,8 +278,14 @@ fold 7 alone contributes +38.4pp to that (its own ML cumulative return of
 entire net advantage. Every other fold, combined, nets to **−21.5pp**: ML
 *underperforms* the baseline once fold 7 is excluded, not merely loses its
 edge. The best-performing configuration's entire apparent edge over the
-linear baseline comes from a single 12-month window, and every other window
-it was tested on favored the baseline.
+linear baseline comes from a single 12-month window; excluding it, the
+baseline outperforms in aggregate. This is a statement about the sum across
+folds, not about each fold individually — fold-by-fold, ML's raw Sharpe
+still exceeds the baseline's in most of the other 8 folds (full per-fold
+detail in `results/comparison/per_fold_subperiods.csv`), just by margins
+small enough that they cannot offset fold 7's dominance of the total.
+Magnitude, not count, is what determines the aggregate — exactly the
+distinction the next paragraph's self-correction is about.
 
 *A methodological note on how we arrived at this reading.* An earlier draft
 of this analysis observed that `rf_depth10_leaf50`'s Sharpe exceeded the
@@ -353,13 +369,15 @@ Using `rf_depth10_leaf50`'s own empirical skew (−1.35) and kurtosis (9.43,
 against 3 for a normal distribution) — its out-of-sample returns are
 meaningfully negatively skewed and fat-tailed — this design needed an
 annualized out-of-sample Sharpe of roughly **1.5** to declare a win at
-DSR ≥ 0.95. A genuine edge in the Sharpe 0.3–0.5 range, which is roughly
-what the empirical ML-vs-linear-factors literature finds after costs (Gu,
-Kelly, and Xiu 2020), would have been **undetectable** by this design at
-this sample size and this multiple-testing correction, independent of
-whether such an edge exists. This is a distinct claim from the null result
-itself: the study fails to reject the null, *and* the design could not have
-rejected it for any realistic effect size.
+DSR ≥ 0.95. A genuine edge of annualized Sharpe 0.3–0.5 — well below Gu,
+Kelly, and Xiu's (2020) headline gross figures (Section 1), but a plausible
+order of magnitude for a net-of-cost edge once turnover and trading frictions
+are priced in, as the cost-aware factor-investing literature generally finds
+— would have been **undetectable** by this design at this sample size and
+this multiple-testing correction, independent of whether such an edge
+exists. This is a distinct claim from the null result itself: the study
+fails to reject the null, *and* the design could not have rejected it for
+any realistic effect size.
 
 ## 6. Discussion
 
@@ -374,22 +392,64 @@ collinear and therefore offering a non-linear model little extra structure
 to combine — we checked, and they are nearly orthogonal in this sample
 (pairwise correlations of 0.02 between momentum and value, 0.03 between
 momentum and quality, and 0.13 between value and quality, on the full
-panel). The more direct explanation is that each factor, alone, has almost
-no linear relationship with next-month returns in this sample either
-(correlations of −0.003, 0.012, and −0.003 with forward returns for
-momentum, value, and quality respectively) — with that little standalone
-signal in any input, there is little for a non-linear model to combine into
-something a simple average does not already capture, independent of how
-correlated the inputs are with each other. Beyond that, monthly rebalancing
-over 15 years yields a modest number of independent observations (Section
-5.4), and 8bps of turnover-based costs are a real, not token, headwind for
-the higher-turnover ML configurations (37% average monthly turnover for the
-baseline vs. over 100% for the best ML configuration) even though costs are
-not, per Section 5.1, the proximate cause of the non-result. None of this
-makes machine learning uninteresting for this problem in general — it is a
-comment on what three hand-picked factors, each carrying little standalone
-signal in this particular sample, and 15 years of monthly data can support,
-not a general claim about machine learning in asset pricing.
+panel; because each factor is cross-sectionally z-scored per date, the
+pooled correlation and the average monthly cross-sectional correlation
+coincide here, so this figure needs no further adjustment).
+
+The more direct explanation is that none of the three factors has a
+cross-sectional relationship with forward returns distinguishable from
+zero in this sample. `backtester/scripts/factor_ic.py` computes each
+factor's monthly rank IC (Spearman correlation of the factor against
+next-month return, within each rebalance date's cross-section, skipping
+months with fewer than 20 valid names) and its t-statistic
+(mean / (std / √n)) across all 167–179 such months in the full sample:
+
+| Factor | Months | Mean IC | Std IC | t-stat |
+|---|---|---|---|---|
+| mom_z | 167 | 0.0036 | 0.209 | 0.22 |
+| val_z | 179 | 0.0111 | 0.118 | 1.26 |
+| qual_z | 179 | 0.0041 | 0.120 | 0.46 |
+
+None of the three t-statistics clears even a loose significance bar. This
+supersedes an earlier draft's use of pooled, non-cross-sectional Pearson
+correlations (−0.003, 0.012, −0.003) for the same claim — the wrong
+statistic for a cross-sectional decile strategy, since an un-demeaned
+`fwd_ret` carries a large common market component that pooling drags
+toward zero regardless of the cross-sectional signal actually present. The
+correction changes more than the numbers: two of the three pooled figures
+(momentum and quality) had the **wrong sign** relative to the correctly
+computed monthly rank IC. Both sets of statistics are full-sample
+descriptive properties of the factors — including periods the ML models
+were trained on, not just tested on — not an out-of-sample performance
+claim; Section 5's walk-forward results remain the paper's evidence on
+that question. Two further observations from the corrected table converge
+with the walk-forward results above: momentum's IC volatility (~0.21) is
+nearly double value's and quality's (~0.12) — its cross-sectional signal
+isn't just weak on average, it is also far less stable month to month, the
+same fat-tailed, regime-dependent behavior that shows up as fold 5's crash
+(Section 5.2) and that the Daniel and Moskowitz (2016) pattern already
+cited describes. And value is the only factor with a t-statistic above 1 —
+consistent with val_z leading per-fold permutation importance in 5 of 9
+folds and fold 7 (the single fold responsible for the entire ML edge)
+being a value-favoring regime (Section 5.3). Three independent views of
+this dataset — full-sample factor IC, per-fold permutation importance, and
+leave-one-fold-out — all locate the same, single factor-and-window
+combination as whatever thin signal exists here.
+
+With that little standalone cross-sectional signal in any input, there is
+little for a non-linear model to combine into something a simple average
+does not already capture, independent of how correlated the inputs are
+with each other. Beyond that, monthly rebalancing over 15 years yields a
+modest number of independent observations (Section 5.4), and 8bps of
+turnover-based costs are a real, not token, headwind for the
+higher-turnover ML configurations (37% average monthly turnover for the
+baseline vs. over 100% for the best ML configuration) even though costs
+are not, per Section 5.1, the proximate cause of the non-result. None of
+this makes machine learning uninteresting for this problem in general — it
+is a comment on what three hand-picked factors, none individually
+distinguishable from zero in this particular sample, and 15 years of
+monthly data can support, not a general claim about machine learning in
+asset pricing.
 
 **Limitations.**
 
@@ -399,8 +459,10 @@ not a general claim about machine learning in asset pricing.
    is stated in the Abstract, not only here.
 2. **Fundamentals coverage.** A further, separate 216-ticker SEC EDGAR gap
    leaves some names' value/quality scores missing even where price data is
-   available; not fixable by the same Tiingo fallback that (partially)
-   addresses the price gap, since it did not resolve that gap either.
+   available. This is an independent cause from the price gap in Section 2,
+   not a consequence of it: Tiingo's fallback is a *prices* API, so it was
+   never going to close a *fundamentals* gap regardless of whether it had
+   succeeded on prices.
 3. **Ticker-symbol matching, not a permanent identifier.** All joins in this
    study are on ticker symbol. We checked every structural pattern under
    which this could contaminate a valid membership window with the wrong
@@ -439,11 +501,12 @@ entire advantage, and is not backed by any stable relationship between the
 model and the three input factors. A companion power analysis shows the
 study's sample size could not have detected a realistic edge in any case.
 The contribution here is not the specific null result, which is unsurprising
-given three well-known factors that individually carry little standalone
-signal in this sample (Section 6) and a modest number of independent
-observations — it's a reproducible, pre-registered, cost-aware test of the
-question, with its own self-corrections (Section 5.2) and data limitations
-(Section 2, and the Abstract) disclosed rather than smoothed over.
+given three well-known factors whose full-sample monthly rank ICs are each
+statistically indistinguishable from zero (Section 6) and a modest number
+of independent observations — it's a reproducible, pre-registered,
+cost-aware test of the question, with its own self-corrections (Section
+5.2) and data limitations (Section 2, and the Abstract) disclosed rather
+than smoothed over.
 
 ## References
 
@@ -473,21 +536,25 @@ question, with its own self-corrections (Section 5.2) and data limitations
   2024-12-31; 12-1 momentum, earnings-yield value, ROE quality; monthly
   rebalance, 10 deciles, dollar-neutral long/short; 8bps/trade; walk-forward
   60-month train / 12-month test / 1-month embargo.
-- **Tests:** 78 pytest tests, network-mocked, covering no-look-ahead,
+- **Tests:** 85 pytest tests, network-mocked, covering no-look-ahead,
   no-leakage (imputation fit on train folds only), survivorship-inclusive
-  universe construction, and the metrics themselves.
+  universe construction, the metrics themselves, and the factor IC
+  computation in Section 6 (e.g. a perfectly rank-ordered synthetic month
+  returns IC = 1.0, a reversed one returns −1.0).
 - **Full results, all scripts, and every supplementary check** (coverage
   gap, ticker-identity check, Tiingo spot check, gross-vs-net, statistical
-  power, leave-one-out, per-fold permutation importance, cost sensitivity)
-  are under `results/` and `backtester/scripts/`, each with a `README.md`
-  documenting exactly how it was produced and how to reproduce it.
+  power, leave-one-out, per-fold permutation importance, full-sample factor
+  IC, cost sensitivity) are under `results/` and `backtester/scripts/`,
+  each with a `README.md` documenting exactly how it was produced and how
+  to reproduce it — including `results/comparison/factor_ic.csv` (Section
+  6's factor IC table).
 
 To reproduce end to end:
 
 ```bash
 cd backtester
 pip install -r requirements.txt
-python -m pytest -q                                    # 78 tests
+python -m pytest -q                                    # see test count below
 PYTHONPATH=. python scripts/run_backtest.py --config config.yaml
 PYTHONPATH=. python scripts/run_ml_experiment.py --config config.yaml
 PYTHONPATH=. python scripts/compare_ml_vs_baseline.py
@@ -496,4 +563,5 @@ PYTHONPATH=. python scripts/dsr_power_table.py
 PYTHONPATH=. python scripts/feature_importance.py
 PYTHONPATH=. python scripts/subperiod_table.py
 PYTHONPATH=. python scripts/cost_sensitivity.py
+PYTHONPATH=. python scripts/factor_ic.py
 ```
