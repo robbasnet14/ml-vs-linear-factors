@@ -1,6 +1,6 @@
 # Does Machine Learning Beat a Linear Factor Combination? A Pre-Registered, Cost-Aware Test
 
-Rob Basnet
+Rob Basnet  
 Draft: 2026-09-23
 
 ## Abstract
@@ -331,9 +331,9 @@ forward returns.
 merely sitting beside it: fold 7 — the single fold responsible for all of
 the model's apparent edge — is also the fold where val_z's importance peaks
 (0.059, roughly 3x any other fold) and where the model's baseline rank IC is
-the highest of any full fold.** Two independent diagnostics — a portfolio-
-level robustness check and a feature-level stability check — locate the same
-fold as the source of the entire result. This reads as one window in which
+the highest of any full fold.** Two independent diagnostics — a
+portfolio-level robustness check and a feature-level stability check —
+locate the same fold as the source of the entire result. This reads as one window in which
 value happened to work, with no evidence it generalizes: `rf_depth10_leaf50`
 is not learning a stable relationship with momentum, value, or quality, and
 its headline 0.241 Sharpe is one regime's bet, not a repeatable edge.
