@@ -1,0 +1,9 @@
+mode,config,leg,group,names_held,mean_share_of_leg_weight,return_contribution
+published,rf_depth10_leaf50,long,forward split after the fold,8,0.07170542635658915,0.04636452520285543
+published,rf_depth10_leaf50,long,no forward split after the fold,145,0.9282945736434108,0.3582529798398036
+published,rf_depth10_leaf50,short,forward split after the fold,7,0.027131782945736437,-0.005962892115636952
+published,rf_depth10_leaf50,short,no forward split after the fold,195,0.9728682170542635,-0.10929847609436402
+corrected,rf_depth10_leaf50,long,forward split after the fold,8,0.031007751937984496,0.023030930807556315
+corrected,rf_depth10_leaf50,long,no forward split after the fold,179,0.9689922480620154,0.1965207549529681
+corrected,rf_depth10_leaf50,short,forward split after the fold,5,0.01744186046511628,-0.007211029896167245
+corrected,rf_depth10_leaf50,short,no forward split after the fold,152,0.9825581395348837,-0.20247638812207036

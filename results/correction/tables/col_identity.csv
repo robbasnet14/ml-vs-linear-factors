@@ -1,0 +1,2 @@
+sp500_member_from,sp500_member_to,cached_series_from,cached_series_to,rockwell_collins_from,rockwell_collins_to,overlap_months,monthly_return_correlation
+2010-01-01,2018-11-26,2012-08-31,2020-11-30,2008-01-31,2018-11-30,75,0.06893127686526292

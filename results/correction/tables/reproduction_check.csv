@@ -1,0 +1,10 @@
+series,months,max_abs_difference
+oos_net_returns,109,0.0
+ml_oos_net_returns_gbm_lr0.03_depth3,109,0.0
+ml_oos_net_returns_gbm_lr0.03_depth5,109,0.0
+ml_oos_net_returns_gbm_lr0.1_depth3,109,0.0
+ml_oos_net_returns_gbm_lr0.1_depth5,109,0.0
+ml_oos_net_returns_rf_depth10_leaf200,109,0.0
+ml_oos_net_returns_rf_depth10_leaf50,109,0.0
+ml_oos_net_returns_rf_depth5_leaf200,109,0.0
+ml_oos_net_returns_rf_depth5_leaf50,109,0.0
