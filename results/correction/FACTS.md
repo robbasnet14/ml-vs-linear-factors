@@ -38,7 +38,11 @@ This is a reference, not prose for the paper.
 - **Discarded runs:** the first measurement runs were run in parallel with the vendored
   loader online; Yahoo throttling made it skiplist MCHP, KDP, HPQ, COST and HD mid-run
   (stocks with cached prices). Those numbers were thrown away; all numbers here come from
-  the offline harness, whose `published` mode reproduces exactly.
+  the offline harness, whose `published` mode reproduces exactly. Why throttling produced
+  silently missing stocks rather than an error: the vendored loader marks a ticker
+  permanently unavailable when a request fails, a bug fixed in factor-backtester at
+  `befc5c5` ("Never mark a ticker unavailable because a provider failed"), after the
+  vendored snapshot.
 
 ## 3. Headline, published vs corrected (`tables/summary.csv`, `tables/sharpe_by_config.csv`)
 
@@ -54,13 +58,30 @@ Walk-forward out-of-sample, net of 8 bps costs.
 | Best ML deflated Sharpe, n=9 | 0.202 | 0.108 | 0.005 |
 | Best ML max drawdown | −32.5% | −36.5% | −55.8% |
 | ML Sharpe range (8 configs) | −0.357 .. 0.241 | −0.353 .. 0.096 | −0.590 .. −0.361 |
-| ML configs beating the baseline | 3 of 8 | 1 of 8 | 0 of 8 |
+| ML configs beating the baseline | 3 of 8 (a fourth within rounding, see below) | 1 of 8 | 0 of 8 |
 
+- "3 of 8" published rests on 0.0004: gbm_lr0.1_depth3 is 0.06564 against the baseline's
+  0.06606, and PAPER.md's Section 5.1 table prints both as 0.066 (lines 231 and 234), so a
+  reader counting from that table gets four.
 - Every corrected ML configuration is below a baseline that is itself negative.
 - Data drift alone (old formula, fresh data) barely moves the baseline (0.066 → 0.052) but
   takes the published best configuration from 0.241 to 0.096.
 
-## 4. Factor IC, full sample (`tables/factor_ic.csv`)
+## 4. The published 0.241 was fragile in three separate ways
+
+For rf_depth10_leaf50, the published best configuration, with everything else unchanged:
+
+| Change | OOS Sharpe | Source |
+|---|---|---|
+| As published | 0.241 | `tables/sharpe_by_config.csv` |
+| Data re-downloaded, leaky formula unchanged (data vintage) | 0.096 (−60.2%) | `tables/sharpe_by_config.csv`, oldformula |
+| scikit-learn 1.9 instead of 1.5.1, same code and data | 0.147 | measured on an unpinned run; see `backtester/requirements.txt` |
+| Leak corrected | −0.457 | `tables/sharpe_by_config.csv`, corrected |
+
+Only the leak is a bug; data vintage and library version are robustness failures. Over the
+same data-vintage change the baseline moves 0.066 → 0.052.
+
+## 5. Factor IC, full sample (`tables/factor_ic.csv`)
 
 Monthly cross-sectional rank IC vs next-month return.
 
@@ -72,17 +93,18 @@ Monthly cross-sectional rank IC vs next-month return.
 
 Value was the only factor with |t| > 1; corrected, none is.
 
-## 5. Fold 7 (2022-09 to 2023-09)
+## 6. Fold 7 (2022-09 to 2023-09)
 
-**Summed monthly net return** (`tables/per_fold.csv`):
+**Net** (after costs) summed monthly return (`tables/per_fold.csv`):
 
 | | Published | Old formula, fresh data | Corrected |
 |---|---|---|---|
 | rf_depth10_leaf50 | +0.280 | +0.244 | +0.001 |
 | Baseline | −0.067 | −0.078 | −0.122 |
 
-**Attribution by later forward splits** (`tables/fold7_split_attribution.csv`):
-rf_depth10_leaf50, gross (before costs) monthly contribution summed over the fold; "split
+**Gross** (before costs) attribution by later forward splits
+(`tables/fold7_split_attribution.csv`): rf_depth10_leaf50, monthly contribution summed over
+the fold, so its totals differ from the net figures above; "split
 after" = a forward split between 2023-09-01 and 2024-12-31, when the leak inflated that name's
 value score during fold 7.
 
@@ -94,7 +116,7 @@ value score during fold 7.
 | Short, no split after | 195 | 97.3% | −0.109 |
 | **Total** | | | **+0.289** |
 
-Corrected total: +0.010.
+Corrected gross total: +0.010 (net: +0.001, table above).
 
 - The test-window channel (holding later-splitters) accounts for +0.046 of +0.289 in the
   published run, so it is not the mechanism. The edge disappears once the feature is
@@ -103,7 +125,7 @@ Corrected total: +0.010.
   as the explanation. That last step is an inference from these two measurements, not a
   direct measurement of what the model learned.
 
-## 6. Exploratory only: did the ML configurations lose more than the baseline?
+## 7. Exploratory only: did the ML configurations lose more than the baseline?
 
 `tables/swing_by_config.csv`. Post hoc (formed after seeing results), n = 8 configurations:
 an observation, not a finding.
@@ -118,7 +140,7 @@ an observation, not a finding.
   t from −1.57 (gbm_lr0.1_depth5) to +0.78; |t| < 2 for all eight. The paired test is on mean
   monthly return impact, not on the Sharpe swings themselves.
 
-## 7. COL: ticker identity (`tables/col_identity.csv`)
+## 8. COL: ticker identity (`tables/col_identity.csv`)
 
 - COL (Rockwell Collins) was an S&P 500 member 2010-01-01 to 2018-11-26 (acquired).
 - The study's cached COL series runs 2012-08 to 2020-11; Rockwell Collins (from
@@ -142,6 +164,6 @@ an observation, not a finding.
   and momentum come from the study's own (contaminated) price cache; in the oldformula and
   corrected modes its value input comes from the d68487a panel, which uses Rockwell Collins.
 
-## 8. Reproducing
+## 9. Reproducing
 
 See `results/correction/README.md`.
