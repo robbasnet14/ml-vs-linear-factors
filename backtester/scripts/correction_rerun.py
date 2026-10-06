@@ -16,15 +16,26 @@ Modes:
   corrected   EPS restated across splits, divided by a split-adjusted (not
               dividend-adjusted) price
 
-It runs entirely from the local data cache. The vendored loader would otherwise
-re-query Yahoo for every ticker on every run (its cache-miss bug, fixed in
-factor-backtester after the vendored commit) and permanently skiplist a ticker
-whenever a request fails -- which is what happened during this correction's
-own first measurement runs: running modes in parallel got requests throttled,
-and MCHP, KDP, HPQ, COST and HD were dropped mid-run despite having cached
-prices. Those queries never added or changed a cached row, so serving the cache
-directly is the published behaviour without the failure mode; the 'published'
-mode reproducing every published series exactly is the check.
+It runs entirely from the local data cache, read-only, and any failure to read
+it stops the run. The vendored loader fails silently in two ways this guards
+against, both of which hit this correction's own measurement runs:
+
+- Online, it re-queries Yahoo for every ticker on every run (its cache-miss
+  bug, fixed in factor-backtester after the vendored commit) and permanently
+  skiplists a ticker whenever a request fails: parallel runs got throttled
+  and dropped MCHP, KDP, HPQ, COST and HD despite their cached prices.
+- It rewrites each ticker's price file on every load, and its fallback
+  catches every Exception: a run reading a file another run was rewriting
+  lost that ticker without an error (the first committed corrected baseline
+  was affected).
+
+So here prices and fundamentals are served from the cache without writing,
+the skiplist is never written, and a cache read error raises an error that is
+deliberately not an Exception subclass, so the loader's `except Exception`
+can't turn it into a silently skipped ticker. Modes can run in parallel. The
+vendored network queries never added or changed a cached row, so this is the
+published behaviour without the failure modes; the 'published' mode
+reproducing every published series exactly is the check.
 
 The two panels are built by factor-backtester at commit d68487a (see
 results/correction/inputs/build_value_panels.py). The published scripts write
@@ -54,6 +65,48 @@ PANELS = {
 }
 
 
+class CacheReadError(BaseException):
+    """Not an Exception subclass on purpose: the vendored loader catches
+    Exception and quietly drops the ticker, which must not happen here."""
+
+
+def _read(path):
+    try:
+        return pd.read_parquet(path)
+    except Exception as e:
+        raise CacheReadError(f"could not read {path}: {e}") from e
+
+
+def _read_only_price_series(loader):
+    """The vendored _load_one_price_series with an empty fetch (offline),
+    minus the write: same rows, never touches the file."""
+    def load(ticker, start_ts, end_ts, cache_dir, fetch_fn):
+        path = loader._cache_path(cache_dir, "prices", ticker)
+        cached = _read(path) if path.exists() else loader._empty_price_frame()
+        if cached.empty or not (cached["date"].min() <= start_ts and cached["date"].max() >= end_ts):
+            cached = cached.drop_duplicates(subset="date").sort_values("date").reset_index(drop=True)
+        sliced = cached[(cached["date"] >= start_ts) & (cached["date"] <= end_ts)].copy()
+        sliced.insert(1, "ticker", ticker.upper())
+        return sliced[["date", "ticker", "adj_close"]]
+    return load
+
+
+def _read_only_fundamentals_series(loader, original):
+    """Cached fundamentals read through `_read` (fatal on error); a ticker with
+    no cache file goes to the original, whose SEC fetch fails offline exactly
+    as an unreachable SEC would."""
+    def load(ticker, start_ts, end_ts, lag_days, cache_dir, ticker_to_cik):
+        path = loader._cache_path(cache_dir, "fundamentals", ticker)
+        if not path.exists():
+            return original(ticker, start_ts, end_ts, lag_days, cache_dir, ticker_to_cik)
+        raw = _read(path).copy()
+        raw["date"] = raw["report_date"] + pd.Timedelta(days=lag_days)
+        raw.insert(1, "ticker", ticker.upper())
+        mask = (raw["date"] >= start_ts) & (raw["date"] <= end_ts)
+        return raw.loc[mask, ["date", "ticker", "report_date", "earnings", "book_value", "roe"]]
+    return load
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["published", *PANELS], required=True)
@@ -63,11 +116,13 @@ def main():
     import src.data.loader as loader
     import src.features.factors as factors
 
-    # Offline: cached data only, and the skiplist is never written.
+    # Offline and read-only: cached data only, nothing written, read errors fatal.
     loader._fetch_yfinance_prices = lambda *a, **k: loader._empty_price_frame()
     loader._fetch_tiingo_prices = lambda *a, **k: loader._empty_price_frame()
     loader._sec_get = lambda *a, **k: (_ for _ in ()).throw(ConnectionError("offline re-run: no network"))
     loader._save_skiplist = lambda *a, **k: None
+    loader._load_one_price_series = _read_only_price_series(loader)
+    loader._load_one_fundamentals_series = _read_only_fundamentals_series(loader, loader._load_one_fundamentals_series)
 
     if args.mode in PANELS:
         panel = pd.read_parquet(PANELS[args.mode])

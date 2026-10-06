@@ -32,7 +32,7 @@ This is a reference, not prose for the paper.
   (`inputs/build_value_panels.py`). n_trials stays 9: the same nine configurations recomputed,
   not a new search.
 - **The feature swap did only what it should** (`tables/value_panel_agreement.csv`): mean
-  monthly rank correlation between leaky and corrected value is 0.956 for the 446 names that
+  monthly rank correlation between leaky and corrected value is 0.955 for the 446 names that
   never split 2008–2024 (only the dividend part of the fix applies) and 0.680 for the 201 that
   split at least once. Coverage: 76,950 non-NaN cells leaky vs 76,624 corrected.
 - **Discarded runs:** the first measurement runs were run in parallel with the vendored
@@ -43,6 +43,14 @@ This is a reference, not prose for the paper.
   permanently unavailable when a request fails, a bug fixed in factor-backtester at
   `befc5c5` ("Never mark a ticker unavailable because a provider failed"), after the
   vendored snapshot.
+- **One committed series was replaced:** the first committed corrected baseline came from an
+  offline run in parallel with the other modes, and lost a ticker: the vendored loader
+  rewrites each price file on every load and swallows read errors, so a file read while
+  another run was rewriting it dropped that ticker silently (Sharpe −0.1728 instead of
+  −0.1739). It was found because a separate run of the corrected world disagreed with it;
+  a sequential re-run matches that run exactly. The harness now reads the cache without
+  writing it and stops on any read error; all three modes re-run in parallel with it
+  reproduce the sequential series byte for byte, with the data cache unchanged.
 
 ## 3. Headline, published vs corrected (`tables/summary.csv`, `tables/sharpe_by_config.csv`)
 
@@ -50,8 +58,8 @@ Walk-forward out-of-sample, net of 8 bps costs.
 
 | | Published | Old formula, fresh data | Corrected |
 |---|---|---|---|
-| Baseline Sharpe | 0.066 | 0.052 | −0.173 |
-| Baseline deflated Sharpe, n=1 | 0.578 | 0.561 | 0.296 |
+| Baseline Sharpe | 0.066 | 0.052 | −0.174 |
+| Baseline deflated Sharpe, n=1 | 0.578 | 0.561 | 0.294 |
 | Baseline deflated Sharpe, n=9 | 0.093 | 0.086 | 0.020 |
 | Best ML config | rf_depth10_leaf50 | rf_depth10_leaf50 | gbm_lr0.03_depth3 |
 | Best ML Sharpe | 0.241 | 0.096 | −0.361 |
@@ -100,7 +108,7 @@ Value was the only factor with |t| > 1; corrected, none is.
 | | Published | Old formula, fresh data | Corrected |
 |---|---|---|---|
 | rf_depth10_leaf50 | +0.280 | +0.244 | +0.001 |
-| Baseline | −0.067 | −0.078 | −0.122 |
+| Baseline | −0.067 | −0.078 | −0.123 |
 
 **Gross** (before costs) attribution by later forward splits
 (`tables/fold7_split_attribution.csv`): rf_depth10_leaf50, monthly contribution summed over
@@ -130,14 +138,14 @@ Corrected gross total: +0.010 (net: +0.001, table above).
 `tables/swing_by_config.csv`. Post hoc (formed after seeing results), n = 8 configurations:
 an observation, not a finding.
 
-- Baseline Sharpe change, published → corrected: −0.239.
-- Mean ML change −0.454, 1.90× the baseline's; 7 of 8 configurations changed more than the
-  baseline. The published best (rf_depth10_leaf50) changed by −0.697 (2.92×): it was selected
+- Baseline Sharpe change, published → corrected: −0.240.
+- Mean ML change −0.454, 1.89× the baseline's; 7 of 8 configurations changed more than the
+  baseline. The published best (rf_depth10_leaf50) changed by −0.697 (2.91×): it was selected
   for looking best, so it is the configuration most expected to have exploited the artifact.
 - The two most regularised forests changed least (rf_depth5_leaf200 −0.066,
   rf_depth10_leaf200 −0.251), consistent with flexibility mattering but not a test of it.
 - **No significant difference in mean monthly return impact** relative to the baseline: paired
-  t from −1.57 (gbm_lr0.1_depth5) to +0.78; |t| < 2 for all eight. The paired test is on mean
+  t from −1.56 (gbm_lr0.1_depth5) to +0.79; |t| < 2 for all eight. The paired test is on mean
   monthly return impact, not on the Sharpe swings themselves.
 
 ## 8. COL: ticker identity (`tables/col_identity.csv`)
