@@ -9,17 +9,28 @@ annualized return / max drawdown / hit rate directly from those return
 series with the same functions run_backtest.py and run_ml_experiment.py
 use — so this table is a check against, not a copy of, results/*/README.md.
 
-Turnover is the one metric that can't be recovered from a saved return
-series alone (it needs the per-period weights, which weren't persisted).
-Those figures are carried over verbatim from the Step 3/Step 5 run
-(results/baseline/README.md, results/ml/README.md) and are not
-recomputed here; TURNOVER_PCT below documents that source.
+Turnover can't be recovered from a return series alone; it needs the
+per-period weights. Those come from the holdings the correction re-run
+saved in its `published` mode (results/correction/published/holdings/),
+which reproduces every published return series exactly
+(results/correction/tables/reproduction_check.csv). Turnover is computed
+from them the same way run_backtest.py and run_ml_experiment.py computed
+it: the full weight panel reindexed to the out-of-sample dates, averaged.
+These figures were previously hard-coded from the Step 3/5 run's printout;
+the computed ones match them to the two decimals that printout reported.
 """
 from pathlib import Path
 
 import pandas as pd
 
-from src.analytics.metrics import annualized_return, deflated_sharpe, hit_rate, max_drawdown, sharpe
+from src.analytics.metrics import (
+    annualized_return,
+    average_turnover,
+    deflated_sharpe,
+    hit_rate,
+    max_drawdown,
+    sharpe,
+)
 from src.analytics.plots import plot_equity_curve
 
 PERIODS_PER_YEAR = 12
@@ -29,21 +40,13 @@ RESULTS_DIR = Path("../results")
 BASELINE_CSV = RESULTS_DIR / "baseline" / "oos_net_returns.csv"
 ML_DIR = RESULTS_DIR / "ml"
 OUT_DIR = RESULTS_DIR / "comparison"
+HOLDINGS_DIR = RESULTS_DIR / "correction" / "published" / "holdings"
 
-# Sourced verbatim from results/baseline/README.md and results/ml/README.md
-# (the Step 3 / Step 5 run) — see module docstring for why this isn't
-# recomputed here.
-TURNOVER_PCT = {
-    "baseline": 37.12,
-    "gbm_lr0.03_depth3": 71.59,
-    "gbm_lr0.03_depth5": 89.21,
-    "gbm_lr0.1_depth3": 79.07,
-    "gbm_lr0.1_depth5": 97.27,
-    "rf_depth5_leaf50": 82.48,
-    "rf_depth5_leaf200": 81.50,
-    "rf_depth10_leaf50": 100.57,
-    "rf_depth10_leaf200": 100.38,
-}
+
+def turnover_pct(name: str, returns: pd.Series) -> float:
+    """Average monthly turnover, in percent, from `name`'s published holdings."""
+    weights = pd.read_parquet(HOLDINGS_DIR / f"weights_{name}.parquet")
+    return average_turnover(weights.reindex(returns.index)) * 100
 
 CONFIG_FILES = {
     "gbm_lr0.03_depth3": ML_DIR / "ml_oos_net_returns_gbm_lr0.03_depth3.csv",
@@ -71,7 +74,7 @@ def _row(name: str, returns: pd.Series, n_trials: int) -> dict:
         "ann_return_pct": annualized_return(returns, PERIODS_PER_YEAR) * 100,
         "max_drawdown_pct": max_drawdown(returns) * 100,
         "hit_rate_pct": hit_rate(returns) * 100,
-        "turnover_pct": TURNOVER_PCT[name],
+        "turnover_pct": turnover_pct(name, returns),
         "n_periods": len(returns.dropna()),
     }
 

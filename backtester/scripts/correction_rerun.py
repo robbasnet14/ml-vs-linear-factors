@@ -145,14 +145,27 @@ def main():
         (work / "config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
         os.chdir(work)
 
+        # Keep the baseline's holdings: run_backtest.py imports
+        # walk_forward_backtest from this module when it runs, so wrapping the
+        # module attribute captures the weights it is called with, unchanged.
+        import src.backtest.validation as validation
+        (out_dir / "holdings").mkdir(exist_ok=True)
+        real_walk_forward = validation.walk_forward_backtest
+
+        def walk_forward_keeping_holdings(weights, *a, **k):
+            weights.to_parquet(out_dir / "holdings" / "weights_baseline.parquet")
+            return real_walk_forward(weights, *a, **k)
+
+        validation.walk_forward_backtest = walk_forward_keeping_holdings
         sys.argv = ["run_backtest.py", "--config", "config.yaml"]
         runpy.run_path(str(BACKTESTER / "scripts" / "run_backtest.py"), run_name="__main__")
+        validation.walk_forward_backtest = real_walk_forward
 
-        # Keep each configuration's holdings too (needed for the fold-7 attribution).
+        # Keep each configuration's holdings too (fold-7 attribution; turnover
+        # in scripts/compare_ml_vs_baseline.py).
         ml = runpy.run_path(str(BACKTESTER / "scripts" / "run_ml_experiment.py"), run_name="correction")
         main_globals = ml["main"].__globals__
         original_run = main_globals["run_one_config"]
-        (out_dir / "holdings").mkdir(exist_ok=True)
 
         def run_and_keep_holdings(model_cfg, *a, **k):
             oos_returns, weights = original_run(model_cfg, *a, **k)
