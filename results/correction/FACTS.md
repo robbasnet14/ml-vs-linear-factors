@@ -133,6 +133,21 @@ Corrected gross total: +0.010 (net: +0.001, table above).
   as the explanation. That last step is an inference from these two measurements, not a
   direct measurement of what the model learned.
 
+## 6a. Leave-one-fold-out (`tables/leave_one_out.csv`)
+
+Sharpe with each fold's months dropped from the pooled series, computed as
+`scripts/subperiod_table.py` computed PAPER.md's Section 5.2 table; the `published` rows
+reproduce that table exactly (`results/comparison/leave_one_out_sharpe.csv`, max absolute
+difference 0).
+
+| Fold dropped | Published: baseline / rf_depth10_leaf50 / difference | Corrected: baseline / rf_depth10_leaf50 / difference |
+|---|---|---|
+| 7 | +0.115 / −0.024 / −0.138 | −0.107 / −0.495 / −0.387 |
+| none (full sample) | +0.066 / +0.241 / +0.175 | −0.174 / −0.457 / −0.283 |
+
+- Corrected, the difference is negative in all 11 rows: rf_depth10_leaf50 is below the
+  baseline whichever fold is dropped.
+
 ## 7. Exploratory only: did the ML configurations lose more than the baseline?
 
 `tables/swing_by_config.csv`. Post hoc (formed after seeing results), n = 8 configurations:

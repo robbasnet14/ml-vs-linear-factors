@@ -9,6 +9,7 @@ results/correction/inputs/, and writes results/correction/tables/:
   summary.csv                 baseline and best-ML Sharpe / deflated Sharpe, per mode
   swing_by_config.csv         published -> corrected change per config, vs the baseline's
   per_fold.csv                summed monthly net return per walk-forward fold
+  leave_one_out.csv           Sharpe with each fold dropped, baseline and rf_depth10_leaf50, per mode
   factor_ic.csv               full-sample rank IC per factor, per mode
   fold7_split_attribution.csv fold-7 return of names that split after the fold vs the rest
   value_panel_agreement.csv   rank agreement of leaky vs corrected value, split vs never-split names
@@ -135,6 +136,21 @@ def main():
                          **{f"fold {i} ({f['test_start'].date().isoformat()[:7]})": r[(r.index >= f["test_start"]) & (r.index < f["test_end"])].sum()
                             for i, f in enumerate(folds)}})
     pd.DataFrame(rows).to_csv(OUT / "per_fold.csv", index=False)
+
+    # 5b. Leave-one-fold-out, exactly as scripts/subperiod_table.py computed the
+    # published Section 5.2 table: drop one fold's months from the pooled series,
+    # Sharpe on the rest. The 'published' rows must reproduce that table.
+    rows = []
+    for m in MODES:
+        base, best = series(m, BASELINE), series(m, ml(PUBLISHED_BEST))
+        drops = [(str(i), f) for i, f in enumerate(folds)] + [("none (full sample)", None)]
+        for label, f in drops:
+            keep_b = base.index == base.index if f is None else ~((base.index >= f["test_start"]) & (base.index < f["test_end"]))
+            keep_m = best.index == best.index if f is None else ~((best.index >= f["test_start"]) & (best.index < f["test_end"]))
+            b, s = sharpe(base[keep_b], 12), sharpe(best[keep_m], 12)
+            rows.append({"mode": m, "fold_dropped": label, "baseline_sharpe": b,
+                         f"{PUBLISHED_BEST}_sharpe": s, "ml_minus_baseline": s - b})
+    pd.DataFrame(rows).to_csv(OUT / "leave_one_out.csv", index=False)
 
     # 6. Factor IC per mode.
     ic = pd.concat({m: pd.read_csv(CORR / m / "factor_ic.csv", index_col=0) for m in MODES}, names=["mode"])
