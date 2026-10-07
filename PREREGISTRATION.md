@@ -143,3 +143,40 @@ where exactly the line gets drawn within any conventional range (0.5, 0.75, 0.95
 the same answer). See `results/comparison/README.md` for the full comparison and the
 statistical-power analysis of what this study's sample size could have detected in the first
 place.
+
+**2026-10-07 — the published results contained a look-ahead leak; corrected and re-run.**
+The value factor divided EPS as filed by a price adjusted for every later split and
+dividend, so each stock's earnings yield was inflated by its future split factor. Value
+feeds both arms, so the baseline and all eight ML configurations were affected; momentum
+and quality were not. The defect came from the vendored engine (factor-backtester
+`31b92b4`) and was fixed there (`d68487a`).
+
+What stayed as committed above: the question, the null hypothesis, the 9-configuration
+grid, the universe, costs, rebalance, walk-forward folds, and the decision rule. The re-run
+recomputed the same nine configurations, refitting every model in every fold, so
+`n_trials` stays 9; it is not a new search. It first reproduced all nine published return
+series exactly, then ran the published formula on re-downloaded data and the corrected
+formula. Results and sources: `results/correction/FACTS.md`.
+
+Applying the decision rule above to the corrected results: ML does not win. No
+configuration's Sharpe exceeds the baseline's (0 of 8, against 3 of 8 as published), the
+baseline itself is negative (−0.174, against 0.066 as published), and the best ML
+configuration's deflated Sharpe is 0.005 (against 0.202). The null hypothesis stated above
+holds, and more clearly than before.
+
+Three additions that this plan did not anticipate, recorded as deviations:
+
+- **A pinned environment.** "Report the honest out-of-sample number" assumed the number was
+  stable under a re-run. It was not: under scikit-learn 1.9 the published best
+  configuration scores 0.147 instead of 0.241, and on re-downloaded data with the same
+  formula, 0.096. The environment is now pinned (`backtester/requirements.txt`); the
+  data-vintage sensitivity is reported, not removed.
+- **A post-hoc, exploratory comparison.** Whether the ML configurations lost more than the
+  baseline under the correction (mean change 1.89 times the baseline's) was examined after
+  seeing results, on n = 8 configurations, and paired tests find no significant difference
+  in mean monthly return impact. It is not a pre-registered test and not a finding.
+- **A narrowed claim.** The ticker-identity check covered two patterns, not every pattern;
+  COL is a counterexample (`results/correction/FACTS.md`, section 8).
+
+The published figures are kept beside the corrected ones in `PAPER.md`, `README.md`, and
+`results/`; none was replaced.

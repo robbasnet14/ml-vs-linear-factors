@@ -1,5 +1,13 @@
 # Step 6 — Compare
 
+> **Corrected 2026-10-07.** The published results below contained a
+> look-ahead leak in the value factor. This file keeps every published
+> figure and adds the corrected ones beside them where the correction
+> re-computed them (`../correction/FACTS.md`). Sections the correction did
+> not re-run are marked "published run only." Corrected, no ML
+> configuration beats the baseline (0 of 8), and the baseline itself is
+> negative (Sharpe −0.174).
+
 Built by `backtester/scripts/compare_ml_vs_baseline.py`, which reads the
 already-saved stitched walk-forward OOS return series from Step 3
 (`results/baseline/oos_net_returns.csv`) and Steps 4-5
@@ -7,37 +15,49 @@ already-saved stitched walk-forward OOS return series from Step 3
 deflated Sharpe, annualized return, max drawdown, and hit rate directly
 from those series — a check against, not a copy of, `results/baseline/README.md`
 and `results/ml/README.md`. The recomputed numbers matched those READMEs
-exactly. Turnover isn't recomputed here (it needs the per-period weights,
-which weren't persisted to disk); those figures are carried over verbatim
-from the Step 3/5 run and the script documents that source.
+exactly. Turnover is computed from the published holdings — the weights the
+correction re-run saved in its `published` mode, which reproduces every
+published return series exactly (`../correction/published/holdings/`) — the
+same way the original runs computed it. It was previously carried over by
+hand from the Step 3/5 run; the computed figures match those to the two
+decimals reported.
 
 ## Comparison table
 
-| Config | OOS Sharpe | Deflated Sharpe | n_trials | Ann. return | Max drawdown | Hit rate | Turnover | Periods |
-|---|---|---|---|---|---|---|---|---|
-| **baseline (linear, equal-weight)** | 0.066 | 0.578 | 1 | -0.57% | -47.78% | 55.96% | 37.12% | 109 |
-| gbm_lr0.03_depth3 | 0.160 | 0.146 | 9 | 1.23% | -38.05% | 53.21% | 71.59% | 109 |
-| gbm_lr0.03_depth5 | -0.036 | 0.052 | 9 | -1.20% | -36.98% | 46.79% | 89.21% | 109 |
-| gbm_lr0.1_depth3 | 0.066 | 0.093 | 9 | -0.02% | -37.08% | 54.13% | 79.07% | 109 |
-| gbm_lr0.1_depth5 | 0.145 | 0.137 | 9 | 1.01% | -28.34% | 55.96% | 97.27% | 109 |
-| rf_depth5_leaf50 | -0.009 | 0.061 | 9 | -1.11% | -44.77% | 55.05% | 82.48% | 109 |
-| rf_depth5_leaf200 | -0.357 | 0.004 | 9 | -5.26% | -53.55% | 47.71% | 81.50% | 109 |
-| **rf_depth10_leaf50 (best of 8)** | **0.241** | **0.202** | 9 | 2.14% | -32.52% | 59.63% | 100.57% | 109 |
-| rf_depth10_leaf200 | -0.220 | 0.014 | 9 | -2.79% | -39.97% | 46.79% | 100.38% | 109 |
+Published run, with the corrected out-of-sample Sharpe beside it.
 
-Full precision in `comparison_table.csv`.
+| Config | OOS Sharpe | Corrected OOS Sharpe | Deflated Sharpe | n_trials | Ann. return | Max drawdown | Hit rate | Turnover | Periods |
+|---|---|---|---|---|---|---|---|---|---|
+| **baseline (linear, equal-weight)** | 0.066 | −0.174 | 0.578 | 1 | -0.57% | -47.78% | 55.96% | 37.12% | 109 |
+| gbm_lr0.03_depth3 | 0.160 | −0.361 | 0.146 | 9 | 1.23% | -38.05% | 53.21% | 71.59% | 109 |
+| gbm_lr0.03_depth5 | -0.036 | −0.517 | 0.052 | 9 | -1.20% | -36.98% | 46.79% | 89.21% | 109 |
+| gbm_lr0.1_depth3 | 0.066 | −0.421 | 0.093 | 9 | -0.02% | -37.08% | 54.13% | 79.07% | 109 |
+| gbm_lr0.1_depth5 | 0.145 | −0.590 | 0.137 | 9 | 1.01% | -28.34% | 55.96% | 97.27% | 109 |
+| rf_depth5_leaf50 | -0.009 | −0.404 | 0.061 | 9 | -1.11% | -44.77% | 55.05% | 82.48% | 109 |
+| rf_depth5_leaf200 | -0.357 | −0.423 | 0.004 | 9 | -5.26% | -53.55% | 47.71% | 81.50% | 109 |
+| **rf_depth10_leaf50 (best of 8, published)** | **0.241** | **−0.457** | **0.202** | 9 | 2.14% | -32.52% | 59.63% | 100.57% | 109 |
+| rf_depth10_leaf200 | -0.220 | −0.471 | 0.014 | 9 | -2.79% | -39.97% | 46.79% | 100.38% | 109 |
+
+Full precision in `comparison_table.csv` (published) and
+`../correction/tables/sharpe_by_config.csv` (all three correction modes).
+The baseline and gbm_lr0.1_depth3 both print as 0.066 published, but are
+0.06606 and 0.06564: three configurations beat the baseline in the
+published run, not four. Corrected, the best configuration is
+gbm_lr0.03_depth3 (−0.361, deflated Sharpe 0.005, max drawdown −55.8%).
 
 ## Win condition
 
 Per `PREREGISTRATION.md`: ML wins only if a config's OOS Sharpe beats the
 baseline's **and** its deflated Sharpe (n_trials=9) stays above the ~0.95
-bar. `rf_depth10_leaf50` clears the first test (0.241 vs 0.066) but not the
-second (0.202 vs ~0.95) — **the win condition is not met.** This is
+bar. Published: `rf_depth10_leaf50` clears the first test (0.241 vs 0.066)
+but not the second (0.202 vs ~0.95) — **the win condition is not met.**
+Corrected: no configuration clears even the first test — the best,
+gbm_lr0.03_depth3 at −0.361, is below the baseline's −0.174. Both are
 consistent with the pre-registered null hypothesis.
 
 ## Equity curve
 
-`equity_overlay_baseline_vs_best_ml.png` — OOS growth of $1 (net of 8bps
+*Published run only.* `equity_overlay_baseline_vs_best_ml.png` — OOS growth of $1 (net of 8bps
 costs), baseline vs `rf_depth10_leaf50`. The baseline's swings are much
 wider (including the 2020 spike and crash that drives its -47.78% max
 drawdown); the best ML config is steadier but never builds a durable edge
@@ -55,13 +75,19 @@ conventions, so nothing is hidden:
 
 | Config | Sharpe | DSR @ n_trials=1 | DSR @ n_trials=9 |
 |---|---|---|---|
-| baseline | 0.066 | 0.578 | 0.093 |
-| rf_depth10_leaf50 (best ML) | 0.241 | 0.754 | 0.202 |
+| baseline, published | 0.066 | 0.578 | 0.093 |
+| rf_depth10_leaf50 (best ML), published | 0.241 | 0.754 | 0.202 |
+| baseline, corrected | −0.174 | 0.294 | 0.020 |
+| gbm_lr0.03_depth3 (best ML), corrected | −0.361 | not tabulated | 0.005 |
 
-Under either convention the ML config's raw Sharpe is higher, but neither
-arm clears 0.95 at n_trials=9 — the honest number for a 9-config search.
+Published, under either convention the ML config's raw Sharpe is higher,
+but neither arm clears 0.95 at n_trials=9 — the honest number for a
+9-config search. Corrected, the ML config's raw Sharpe is lower than the
+baseline's, and both deflated Sharpe ratios are near zero.
 
 ## Gross-of-cost vs net-of-cost (is the signal real but untradeable, or not real?)
+
+*Published run only; not re-run for the correction.*
 
 Built by `backtester/scripts/gross_vs_net.py`, which re-derives weights
 exactly as the committed pipeline does, then stitches walk-forward OOS
@@ -93,6 +119,8 @@ non-result — the finding is "no detectable edge," not "an edge that costs
 ate." Every other ML config's gross DSR is lower still.
 
 ## Statistical power: could this design have detected a real edge?
+
+*Published run only: the skew and kurtosis below are the published `rf_depth10_leaf50` series'; not re-run for the correction.*
 
 Built by `backtester/scripts/dsr_power_table.py`, which inverts the
 `deflated_sharpe` formula (root-finds the annualized Sharpe needed to hit a
@@ -129,6 +157,8 @@ not have rejected it for any realistic effect size — a materially
 different and stronger claim than "ML didn't win."
 
 ## Step 7: leave-one-out — the entire apparent edge is one fold
+
+*Published run below.* The correction re-ran this table: `../correction/tables/leave_one_out.csv` has the published rows (identical to the table below) and the corrected ones, in which `rf_depth10_leaf50` is below the baseline whichever fold is dropped (fold 7 dropped: −0.495 against −0.107). The correction also explains the published finding: with the leak corrected and nothing else changed, `rf_depth10_leaf50`'s summed net monthly return in fold 7 falls from +0.280 to +0.001 (baseline −0.067 to −0.123; `../correction/tables/per_fold.csv`).
 
 Built by `backtester/scripts/subperiod_table.py`. For each of the 10
 walk-forward folds, drop that fold's periods from the pooled OOS series
@@ -169,6 +199,8 @@ favored the baseline.**
 
 ## Step 7: per-fold Sharpe, on the pre-registered fold boundaries
 
+*Published run only; not re-run for the correction.* Corrected fold-level summed net returns for the baseline and `rf_depth10_leaf50`, beside the published ones, are in `../correction/tables/per_fold.csv`.
+
 | Fold | Test window | Baseline Sharpe | Baseline cum. return | ML Sharpe | ML cum. return |
 |---|---|---|---|---|---|
 | 0 | 2015-02 → 2016-02 | 1.529 | +30.13% | -0.172 | -1.23% |
@@ -206,6 +238,8 @@ both arms positive, with the damage instead landing in the slower
 rotation that followed.
 
 ## Step 7: feature importance — unstable, and it converges with the leave-one-out finding
+
+*Published run only; not re-run for the correction.*
 
 Built by `backtester/scripts/feature_importance.py`, using
 `src/ml/importance.py`'s per-fold permutation importance (not
@@ -248,6 +282,8 @@ learning a stable relationship with any of the three factors, and its
 0.241 headline Sharpe is one regime's value bet, not a repeatable edge.
 
 ## Step 7: cost sensitivity — caveated, not a supporting result
+
+*Published run only; not re-run for the correction.*
 
 Built by `backtester/scripts/cost_sensitivity.py`. Cost is linear in bps
 (`turnover * bps / 1e4`), so this needed one walk-forward pass per arm at
