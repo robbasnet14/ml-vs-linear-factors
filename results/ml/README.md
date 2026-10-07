@@ -1,5 +1,13 @@
 # ML challenger reference (Steps 4-5)
 
+> **Corrected 2026-10-07.** The figures in this file are the published run,
+> whose value factor contained a look-ahead leak (`../correction/FACTS.md`).
+> They are kept as published; the corrected out-of-sample Sharpe is added
+> beside them below, and the other columns were not re-tabulated. Corrected,
+> every configuration loses to a baseline that is itself negative (−0.590 to
+> −0.361, against −0.174); the best is gbm_lr0.03_depth3 (deflated Sharpe
+> 0.005, max drawdown −55.8%).
+
 All 8 configurations committed in `PREREGISTRATION.md`, run via
 `scripts/run_ml_experiment.py --config config.yaml` against the same
 universe, factors, walk-forward folds (60mo train / 12mo test / 1mo
@@ -9,17 +17,21 @@ average of mom_z/val_z/qual_z).
 
 ## Walk-forward OUT-OF-SAMPLE results (109 stitched periods, same dates as the baseline)
 
-| Configuration | Sharpe | Deflated Sharpe (n_trials=9) | Ann. return | Max drawdown | Turnover |
-|---|---|---|---|---|---|
-| gbm_lr0.03_depth3 | 0.16 | 0.146 | 1.23% | -38.05% | 71.59% |
-| gbm_lr0.03_depth5 | -0.04 | 0.052 | -1.20% | -36.98% | 89.21% |
-| gbm_lr0.1_depth3 | 0.07 | 0.093 | -0.02% | -37.08% | 79.07% |
-| gbm_lr0.1_depth5 | 0.14 | 0.137 | 1.01% | -28.34% | 97.27% |
-| rf_depth5_leaf50 | -0.01 | 0.061 | -1.11% | -44.77% | 82.48% |
-| rf_depth5_leaf200 | -0.36 | 0.004 | -5.26% | -53.55% | 81.50% |
-| **rf_depth10_leaf50** | **0.24** | **0.202** | 2.14% | -32.52% | 100.57% |
-| rf_depth10_leaf200 | -0.22 | 0.014 | -2.79% | -39.97% | 100.38% |
-| *baseline (linear composite)* | *0.07* | *0.578 (n_trials=1)* | *-0.57%* | *-47.78%* | *37.12%* |
+| Configuration | Sharpe | Corrected Sharpe | Deflated Sharpe (n_trials=9) | Ann. return | Max drawdown | Turnover |
+|---|---|---|---|---|---|---|
+| gbm_lr0.03_depth3 | 0.16 | −0.361 | 0.146 | 1.23% | -38.05% | 71.59% |
+| gbm_lr0.03_depth5 | -0.04 | −0.517 | 0.052 | -1.20% | -36.98% | 89.21% |
+| gbm_lr0.1_depth3 | 0.07 | −0.421 | 0.093 | -0.02% | -37.08% | 79.07% |
+| gbm_lr0.1_depth5 | 0.14 | −0.590 | 0.137 | 1.01% | -28.34% | 97.27% |
+| rf_depth5_leaf50 | -0.01 | −0.404 | 0.061 | -1.11% | -44.77% | 82.48% |
+| rf_depth5_leaf200 | -0.36 | −0.423 | 0.004 | -5.26% | -53.55% | 81.50% |
+| **rf_depth10_leaf50** | **0.24** | **−0.457** | **0.202** | 2.14% | -32.52% | 100.57% |
+| rf_depth10_leaf200 | -0.22 | −0.471 | 0.014 | -2.79% | -39.97% | 100.38% |
+| *baseline (linear composite)* | *0.07* | *−0.174* | *0.578 (n_trials=1)* | *-0.57%* | *-47.78%* | *37.12%* |
+
+Published Sharpe is shown to two decimals, as originally reported (so
+gbm_lr0.1_depth3 and the baseline both print 0.07; they are 0.06564 and
+0.06606). Corrected Sharpe is from `../correction/tables/sharpe_by_config.csv`.
 
 Best of the 8: `rf_depth10_leaf50`, Sharpe 0.24 — modestly above the
 baseline's 0.07. But its deflated Sharpe at the honest `n_trials=9` (8 ML

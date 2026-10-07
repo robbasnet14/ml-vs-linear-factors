@@ -1,0 +1,4 @@
+group,names,months,mean_monthly_rank_correlation,non_nan_leaky,non_nan_corrected
+split at least once 2008-2024,201,180,0.6800422616207216,,
+never split,446,180,0.9554693588142122,,
+"all (non-NaN cells, leaky / corrected)",647,180,,76950.0,76624.0

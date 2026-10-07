@@ -1,5 +1,19 @@
 # Baseline reference (Step 3)
 
+> **Corrected 2026-10-07.** The figures in this file are the published run,
+> whose value factor contained a look-ahead leak (`../correction/FACTS.md`).
+> They are kept as published. The correction re-computed the following for
+> the baseline; everything else here was not re-tabulated.
+>
+> | | Published | Published formula, re-downloaded data | Corrected |
+> |---|---|---|---|
+> | OOS Sharpe | 0.066 | 0.052 | −0.174 |
+> | Deflated Sharpe, n_trials=1 | 0.578 | 0.561 | 0.294 |
+> | Deflated Sharpe, n_trials=9 | 0.093 | 0.086 | 0.020 |
+>
+> Corrected, the baseline loses money out of sample, and every ML
+> configuration does worse than it.
+
 The equal-weight linear composite from `backtester/`, run fresh via
 `scripts/run_backtest.py --config config.yaml` (SP500, 2010-01-01 to
 2024-12-31, monthly rebalance, decile long/short, 8bps costs, walk-forward

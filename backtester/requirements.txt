@@ -1,12 +1,15 @@
-pandas>=2.2
-numpy>=1.26
-scipy>=1.13
-scikit-learn>=1.5
-statsmodels>=0.14
-matplotlib>=3.9
-pyyaml>=6.0
-pyarrow>=16.0
-requests>=2.32
-tqdm>=4.66
-pytest>=8.0
-yfinance>=0.2
+# Exact versions: the published results reproduce bit-for-bit only with these
+# (verified 2026-09-30 on Python 3.12.9). Model fitting is version-sensitive:
+# under scikit-learn 1.9 the same code and data give rf_depth10_leaf50 an
+# out-of-sample Sharpe of 0.147 instead of 0.241. See results/correction/.
+pandas==2.3.2
+numpy==2.0.1
+scipy==1.15.2
+scikit-learn==1.5.1
+matplotlib==3.10.5
+pyyaml==6.0.2
+pyarrow==25.0.0
+requests==2.32.3
+tqdm==4.67.1
+pytest==9.1.1
+yfinance==1.5.2
